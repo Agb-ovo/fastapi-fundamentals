@@ -27,11 +27,23 @@ def date():
     return {'date': datetime.now()}
 
 @app.get("/api/cars")
-def get_car(size=None):
+def get_cars(size: str|None = None, doors: int|None = None) -> list:
+# def get_cars(size: Optional[str] = None, doors: Optional[str] = None) -> List:
+    result = db
     if size:
-        return [car for car in db if car['size'] == size]
-    else:
-        return db
+        result = [car for car in result if car['size'] == size]
+    if doors:
+        result = [car for car in result if car['doors'] >= doors]
+    return result
+
+
+@app.get("/api/cars/{id}")
+def car_by_id(id: int):
+    result = [car for car in db if car['id'] == id]
+    return result[0]
+
+
+
 
 
 
