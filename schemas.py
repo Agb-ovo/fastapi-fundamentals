@@ -8,6 +8,16 @@ class CarInput(BaseModel):
     doors: int
     transmission: str | None = "auto"
 
+    class Config:
+        schema_extra = {
+            "example": {
+                "size": "m",
+                "doors": 5,
+                "transmission": "manual",
+                "fuel": "hybrid"
+            }
+        }
+
 class CarOutput(CarInput):
     id: int
 
