@@ -20,4 +20,8 @@ def load_db() -> list[Car]:
         car_data = json.load(f)
         return [Car.model_validate(obj) for obj in car_data]
 
+def save_db(cars: list[Car]):
+    with open("cars.json", 'w') as f:
+        json.dump([car.model_dump() for car in cars], f, indent=4)
+
 
