@@ -3,11 +3,10 @@ from datetime import datetime
 from sqlmodel import create_engine, SQLModel, Session, select
 
 
-from schemas import load_db, CarInput, save_db, CarOutput, TripOutput, TripInput, Car
+from schemas import CarInput, CarOutput, TripInput, Car, Trip
 
 app = FastAPI(title="Car Sharing")
 
-db = load_db()
 
 engine = create_engine(
     "sqlite:///carsharing.db",
@@ -135,16 +134,15 @@ def change_car(id: int, new_data: CarInput,
         raise HTTPException(status_code=404, detail=f"No car with id={id}.")
 
 
-@app.post("/api/cars/{car_id}/trips", response_model=TripOutput)
-def add_trip(car_id: int, trip: TripInput) -> TripOutput:
-    matches = [car for car in db if car.id == car_id]
-    if matches:
-        car = matches[0]
-        new_trip = TripOutput(id=len(car.trips)+1,
-                              start=trip.start, end=trip.end,
-                              description=trip.description)
+@app.post("/api/cars/{car_id}/trips", response_model=Trip)
+def add_trip(car_id: int, trip_input: TripInput,
+             session: Session = Depends(get_session)) -> Trip:
+    car = session.get(Car, car_id)
+    if car:
+        new_trip = Trip.from_orm(trip_input, update={'car_id': car_id})
         car.trips.append(new_trip)
-        save_db(db)
+        session.commit()
+        session.refresh(new_trip)
         return new_trip
     else:
         raise HTTPException(status_code=404, detail=f"No car with id={id}.")
