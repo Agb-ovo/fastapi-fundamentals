@@ -1,6 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from datetime import datetime
-from sqlmodel import create_engine, SQLModel, Session
+from sqlmodel import create_engine, SQLModel, Session, select
 
 
 from schemas import load_db, CarInput, save_db, CarOutput, TripOutput, TripInput, Car
@@ -19,6 +19,31 @@ engine = create_engine(
 @app.on_event("startup")
 def on_startup():
     SQLModel.metadata.create_all(engine)
+
+
+def get_session():
+    with Session(engine) as session:
+        yield session
+
+
+@app.get("/api/carss")
+def get_cars(size: str | None = None, doors: int | None = None,
+             session: Session = Depends(get_session)) -> list:
+    query = select(Car)
+    if size:
+        query = query.where(Car.size == size)
+    if doors:
+        query = query.where(Car.doors >= doors)
+    return session.exec(query).all()
+
+
+@app.get("/api/cars/{id}", response_model=CarOutput)
+def car_by_id(id: int, session: Session = Depends(get_session)) -> Car:
+    car = session.get(Car, id)
+    if car:
+        return car
+    else:
+        raise HTTPException(status_code=404, detail=f"No car with id={id}.")
 
 
 @app.get("/")
@@ -44,20 +69,29 @@ def get_cars(size: str|None = None, doors: int|None = None) -> list:
     return result
 
 
-@app.get("/api/cars/{id}")
-def car_by_id(id: int):
-    result = [car for car in db if car.id == id]
-    return result[0]
+#@app.get("/api/cars/{id}")
+#def car_by_id(id: int):
+    #result = [car for car in db if car.id == id]
+    #return result[0]
 
 
 @app.post("/api/cars/", response_model=Car)
-def add_car(car_input: CarInput) -> Car:
-    with Session(engine) as session:
-        new_car = Car.from_orm(car_input)
-        session.add(new_car)
+def add_car(car_input: CarInput, session: Session = Depends(get_session)) -> Car:
+    new_car = Car.from_orm(car_input)
+    session.add(new_car)
+    session.commit()
+    session.refresh(new_car)
+    return new_car
+
+
+@app.delete("/api/cars/{id}", status_code=204)
+def remove_car(id: int, session: Session = Depends(get_session)) -> None:
+    car = session.get(Car, id)
+    if car:
+        session.delete(car)
         session.commit()
-        session.refresh(new_car)
-        return new_car
+    else:
+        raise HTTPException(status_code=404, detail=f"No car with id={id}.")
 
 
 @app.delete("/api/cars/{id}", status_code=204)
@@ -81,6 +115,21 @@ def change_car(id: int, new_data: CarInput) -> CarOutput:
         car.size = new_data.size
         car.doors = new_data.doors
         save_db(db)
+        return car
+    else:
+        raise HTTPException(status_code=404, detail=f"No car with id={id}.")
+
+
+@app.put("/api/cars/{id}", response_model=Car)
+def change_car(id: int, new_data: CarInput,
+               session: Session = Depends(get_session)) -> Car:
+    car = session.get(Car, id)
+    if car:
+        car.fuel = new_data.fuel
+        car.transmission = new_data.transmission
+        car.size = new_data.size
+        car.doors = new_data.doors
+        session.commit()
         return car
     else:
         raise HTTPException(status_code=404, detail=f"No car with id={id}.")
