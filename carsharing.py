@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from datetime import datetime
-from sqlmodel import create_engine, SQLModel, Session, select
+from sqlmodel import create_engine, SQLModel, Session
 
 
-from schemas import load_db, CarInput, save_db, CarOutput, TripOutput, TripInput
+from schemas import load_db, CarInput, save_db, CarOutput, TripOutput, TripInput, Car
 
 app = FastAPI(title="Car Sharing")
 
@@ -50,13 +50,14 @@ def car_by_id(id: int):
     return result[0]
 
 
-@app.post("/api/cars/", response_model=CarOutput)
-def add_car(car: CarInput) -> CarOutput:
-    new_car = CarOutput(size=car.size, doors=car.doors, fuel=car.fuel, transmission=
-                        car.transmission, id=len(db)+1)
-    db.append(new_car)
-    save_db(db)
-    return new_car
+@app.post("/api/cars/", response_model=Car)
+def add_car(car_input: CarInput) -> Car:
+    with Session(engine) as session:
+        new_car = Car.from_orm(car_input)
+        session.add(new_car)
+        session.commit()
+        session.refresh(new_car)
+        return new_car
 
 
 @app.delete("/api/cars/{id}", status_code=204)
