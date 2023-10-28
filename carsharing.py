@@ -1,11 +1,24 @@
 from fastapi import FastAPI, HTTPException
 from datetime import datetime
+from sqlmodel import create_engine, SQLModel, Session, select
+
 
 from schemas import load_db, CarInput, save_db, CarOutput, TripOutput, TripInput
 
 app = FastAPI(title="Car Sharing")
 
 db = load_db()
+
+engine = create_engine(
+    "sqlite:///carsharing.db",
+    connect_args={"check_same_thread": False},  # Needed for SQLite
+    echo=True  # Log generated SQL
+)
+
+
+@app.on_event("startup")
+def on_startup():
+    SQLModel.metadata.create_all(engine)
 
 
 @app.get("/")
